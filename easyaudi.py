@@ -186,7 +186,10 @@ class Audi():
 		"""Adds a waveform to the audio loop"""
 		self.wfs.append(waveform)
 		return waveform
-		#print("added",waveform)
+	def add_mult(self,*waveforms:(WaveForm))->None:
+		"""Adds several waveforms to the audio loop"""
+		for wf in waveforms:
+			self.wfs.append(wf)
 
 def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM)->bytes:
 	"""Converts a sample to bytes"""
