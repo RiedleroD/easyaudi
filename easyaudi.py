@@ -38,45 +38,45 @@ class struct_pa_sample_spec(ctypes.Structure):
 	('channels', ctypes.c_uint8)]
 
 class WaveForm():
-		typ="Empty"
-		__doc__="Base class for waveforms."
-		def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01):
-			"""Initiates the waveform.
+	typ="Empty"
+	__doc__="Base class for waveforms."
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01):
+		"""Initiates the waveform.
 
-	Argument explanations:
-		DISCLAIMER:
-			If a Waveform not packaged with easyaudi has a issue with any of these, please contact the creator of the waveform.
-			Except for the delay, every other argument has to be properly supported by the waveform.
-		freq	->	Frequency of the wave in Hz
-		dur		->	Duration of the wave in seconds. Starts after delay.
-		delay	->	Delay between the waveform being added to the audio loop and it actually producing sound.
-		att		->	Attack (volume sweep from 0 to vol) in seconds.
-		vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)"""
-			self.delay=delay*PA_BASERATE
-			self.dur=dur*PA_BASERATE
-			self.dur2=dur*PA_BASERATE
-			self.freq=freq/PA_BASERATE
-			self.vol=vol*BIGGEST_SAMPLE
-			self.att=att*PA_BASERATE
-		def construct(self)->float:
-			"""returns the next sample"""
-			if self.dur>0:
-				if self.delay>0:
-					self.delay-=1
-				self.dur-=1
-				return self.magicfunc()
-			else:
-				return 0
-		def stop(self):
-			"""Ends the wave"""
-			self.dur=0
-		def magicfunc(self)->float:
-			"""Returns the current sample, even when the wave ended.
-	Returns 0, since it's a null wave."""
+Argument explanations:
+	DISCLAIMER:
+		If a Waveform not packaged with easyaudi has a issue with any of these, please contact the creator of the waveform.
+		Except for the delay, every other argument has to be properly supported by the waveform.
+	freq	->	Frequency of the wave in Hz
+	dur		->	Duration of the wave in seconds. Starts after delay.
+	delay	->	Delay between the waveform being added to the audio loop and it actually producing sound.
+	att		->	Attack (volume sweep from 0 to vol) in seconds.
+	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)"""
+		self.delay=delay*PA_BASERATE
+		self.dur=dur*PA_BASERATE
+		self.dur2=dur*PA_BASERATE
+		self.freq=freq/PA_BASERATE
+		self.vol=vol*BIGGEST_SAMPLE
+		self.att=att*PA_BASERATE
+	def construct(self)->float:
+		"""returns the next sample"""
+		if self.dur>0:
+			if self.delay>0:
+				self.delay-=1
+			self.dur-=1
+			return self.magicfunc()
+		else:
 			return 0
-		def __str__(self)->str:
-			"""Returns a string representation of this object"""
-			return "<"+self.typ+" Object [dur="+str(self.dur/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
+	def stop(self):
+		"""Ends the wave"""
+		self.dur=0
+	def magicfunc(self)->float:
+		"""Returns the current sample, even when the wave ended.
+Returns 0, since it's a null wave."""
+		return 0
+	def __str__(self)->str:
+		"""Returns a string representation of this object"""
+		return "<"+self.typ+" Object [dur="+str(self.dur/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
 
 class WaveGen():
 	class Sine(WaveForm):
