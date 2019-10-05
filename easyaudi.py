@@ -40,19 +40,24 @@ class struct_pa_sample_spec(ctypes.Structure):
 class WaveForm():
 	typ="Empty"
 	__doc__="Base class for waveforms."
-	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0):
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01):
 		"""Initiates the waveform.
 
-Argument explanations:	
+Argument explanations:
+	DISCLAIMER:
+		If a Waveform not packaged with easyaudi has a issue with any of these, please contact the creator of the waveform.
+		Except for the delay, every other argument has to be properly supported by the waveform.
 	freq	->	Frequency of the wave in Hz
 	dur		->	Duration of the wave in seconds. Starts after delay.
 	delay	->	Delay between the waveform being added to the audio loop and it actually producing sound.
-	vol		->	Volume of the wave, where 0-1 is 0%-100% (it's possible to go over 100%, it just sounds horrible)"""
+	att		->	Attack (volume sweep from 0 to vol) in seconds.
+	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)"""
 		self.delay=delay*PA_BASERATE
 		self.dur=dur*PA_BASERATE
 		self.dur2=dur*PA_BASERATE
 		self.freq=freq/PA_BASERATE
 		self.vol=vol*BIGGEST_SAMPLE
+		self.att=att*PA_BASERATE
 	def construct(self)->float:
 		"""returns the next sample"""
 		if self.dur>0:
@@ -77,23 +82,44 @@ class Sine(WaveForm):
 	__doc__="A sine wave"
 	def magicfunc(self)->float:
 		"""Returns the current sample, even when the wave ended"""
-		return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*self.vol
+		if self.att!=0:
+			att=((self.dur2-self.dur)/self.att)
+			if att>1:
+				att=1
+			vol=self.vol*att
+		else:
+			vol=self.vol
+		return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*vol
 class Square(WaveForm):
 	typ="Square"
 	__doc__="A square wave"
 	def magicfunc(self)->float:
 		"""Returns the current sample, even when the wave ended"""
+		if self.att!=0:
+			att=((self.dur2-self.dur)/self.att)
+			if att>1:
+				att=1
+			vol=self.vol*att
+		else:
+			vol=self.vol
 		x=math.sin((self.dur2-self.dur)*math.pi*2*self.freq)
 		if x>0:
-			return self.vol
+			return vol
 		else:
-			return -self.vol
+			return -vol
 class Saw(WaveForm):
 	typ="Saw"
 	__doc__="A saw wave"
 	def magicfunc(self)->float:
 		"""Returns the current sample, even when the wave ended"""
-		return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*self.vol
+		if self.att!=0:
+			att=((self.dur2-self.dur)/self.att)
+			if att>1:
+				att=1
+			vol=self.vol*att
+		else:
+			vol=self.vol
+		return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*vol
 
 class Audi():
 	__doc__="Main audio managing class."
@@ -208,7 +234,7 @@ Examples: A4, A1b, A3#, C4B"""
 		m=n[2].lower()
 		if not m in ("b","#"):
 			raise ValueError("Don't worry, it'll get catched by the except below.")
-	except ValueError:
+	except (ValueError, IndexError):
 		m=None
 		try:
 			i=int(n[1:])

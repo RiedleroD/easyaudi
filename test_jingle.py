@@ -7,6 +7,8 @@ async def feeder(audi:ezaud.Audi):
 	s=asyncio.sleep
 	await s(0.5)
 	print("Playing...")
+	audi.add(audi.wg.Sin(dur=0.5,vol=0.5,att=0.2,freq=ezaud.note("A4b")))		#yes, you have to create a new object for every note.
+	await s(0.6)
 	for x in range(2):
 		audi.add(audi.wg.Sin(dur=0.3,vol=0.5,freq=ezaud.note("A4b")))		#yes, you have to create a new object for every note.
 		await s(0.3)
