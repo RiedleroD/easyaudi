@@ -30,13 +30,66 @@ PA_BASERATES=[44100,48000,96000,192000]
 PA_BASERATE=PA_BASERATES[1]
 
 class struct_pa_sample_spec(ctypes.Structure):
-    __slots__ = ['format','rate','channels']
-struct_pa_sample_spec._fields_ = [
+	__doc__="structure for pulsaudio output"
+	__slots__ = ['format','rate','channels']
+	_fields_ = [
 	('format', ctypes.c_int),
 	('rate', ctypes.c_uint32),
 	('channels', ctypes.c_uint8)]
 
+class WaveForm():
+	typ="Empty"
+	__doc__="Base class for waveforms."
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0):
+		self.delay=delay*PA_BASERATE
+		self.dur=dur*PA_BASERATE
+		self.dur2=dur*PA_BASERATE
+		self.freq=freq/PA_BASERATE
+		self.vol=vol*BIGGEST_SAMPLE
+	def construct(self)->float:
+		"""returns the next sample"""
+		if self.dur>0:
+			if self.delay>0:
+				self.delay-=1
+			self.dur-=1
+			return self.magicfunc()
+		else:
+			return 0
+	def stop(self):
+		"""Ends the wave"""
+		self.dur=0
+	def magicfunc(self)->float:
+		"""Returns the current sample, even when the wave ended.
+Returns 0, since it's a null wave."""
+		return 0
+	def __str__(self)->str:
+		"""Returns a string representation of this object"""
+		return "<"+self.typ+" Object [dur="+str(self.dur/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
+class Sine(WaveForm):
+	typ="Sine"
+	__doc__="A sine wave"
+	def magicfunc(self)->float:
+		"""Returns the current sample, even when the wave ended"""
+		return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*self.vol
+class Square(WaveForm):
+	typ="Square"
+	__doc__="A square wave"
+	def magicfunc(self)->float:
+		"""Returns the current sample, even when the wave ended"""
+		x=math.sin((self.dur2-self.dur)*math.pi*2*self.freq)
+		if x>0:
+			return self.vol
+		else:
+			return -self.vol
+class Saw(WaveForm):
+	typ="Saw"
+	__doc__="A saw wave"
+	def magicfunc(self)->float:
+		"""Returns the current sample, even when the wave ended"""
+		return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*self.vol
+
 class Audi():
+	__doc__="Main audio managing class."
 	def __init__(self,name:str,rate:int=PA_BASERATE,form:int=PA_SAMPLE_FORM,realtime:bool=False):
 		print("""
 		RIEDLER'S
@@ -56,6 +109,7 @@ class Audi():
 		pa_sample_spec = struct_pa_sample_spec
 		self.s = self.pa.pa_simple_new(None,"EasyAudi - "+name,PA_STREAM_PLAYBACK,None,'playback',ctypes.byref(self.ss),None,None,ctypes.byref(self.error))
 	async def audioloop(self):
+		"""starts the audio loop"""
 		try:
 			startt=time.time()
 			while True:
@@ -73,12 +127,14 @@ class Audi():
 				#print(latency)
 		finally:
 			self.pa.pa_simple_free(self.s)
-	def stop(self,wav=None):
+	def stop(self,wav:WaveForm=None):
+		"""Stops the audio loop"""
 		if wav==None:
 			self._stop=True
 		else:
 			del self.wfs[self.wfs.index(wav)]
-	async def getchunk(self):
+	async def getchunk(self)->bytes:
+		"""Returns a chunk of 256 samples"""
 		s=b""
 		for x in range(256):
 			sample=NEUTRAL_SAMPLE
@@ -93,12 +149,14 @@ class Audi():
 		if not self.isreal:
 			await asyncio.sleep(0)
 		return s
-	def add(self,waveform):
+	def add(self,waveform:WaveForm)->WaveForm:
+		"""Adds a waveform to the audio loop"""
 		self.wfs.append(waveform)
 		return waveform
 		#print("added",waveform)
 
-def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM):
+def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM)->bytes:
+	"""Converts a sample to bytes"""
 	if meth==0:
 		return struct.pack("<B",samp)
 	elif meth==1:
@@ -124,60 +182,26 @@ def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM):
 	else:
 		raise ValueError("Meth has an invalid Value: "+str(meth))
 
-class WaveForm():
-	typ="Empty"
-	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0):
-		self.delay=delay*PA_BASERATE
-		self.dur=dur*PA_BASERATE
-		self.dur2=dur*PA_BASERATE
-		self.freq=freq/PA_BASERATE
-		self.vol=vol*BIGGEST_SAMPLE
-	def construct(self):
-		if self.dur>0:
-			if self.delay>0:
-				self.delay-=1
-			self.dur-=1
-			return self.magicfunc()
-		else:
-			return 0
-	def stop(self):
-		self.dur=0
-	def magicfunc(self):
-		return 0
-	def __str__(self):
-		return "<"+self.typ+" Object [dur="+str(self.dur/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
-class Sine(WaveForm):
-	typ="Sine"
-	def magicfunc(self):
-		return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*self.vol
-class Square(WaveForm):
-	typ="Square"
-	def magicfunc(self):
-		x=math.sin((self.dur2-self.dur)*math.pi*2*self.freq)
-		if x>0:
-			return self.vol
-		else:
-			return -self.vol
-class Saw(WaveForm):
-	typ="Saw"
-	def magicfunc(self):
-		return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*self.vol
-
 class WaveGen():
 	Sin=Sine
 	Square=Square
 	Saw=Saw
+	__doc__="Collection class of waveforms"
 	def __init__(self):
 		pass
 
-def note(n:str):
+def note(n:str)->float:
+	"""Converts a note into a frequency.
+Note Syntax:
+<NOTE><OCTAVE><MODIFIER>
+Examples: A4, A1b, A3#, C4B"""
 	freq=440 #A4
 	a=n[0].lower()
 	try:
-		m=n[2]
+		m=n[2].lower()
 		if not m in ("b","#"):
 			raise ValueError("Don't worry, it'll get catched by the except below.")
-	except:
+	except ValueError:
 		m=None
 		try:
 			i=int(n[1:])
@@ -188,7 +212,6 @@ def note(n:str):
 			i=int(n[1:-1])
 		except:
 			i=4
-	
 	if a=="a":
 		if m==None:
 			pass
@@ -238,15 +261,11 @@ def note(n:str):
 			freq=369.994
 		elif m=="#":
 			freq=415.305
-	
 	i-=4
 	if i>0:
 		freq*=2**i
 	if i<0:
 		freq/=2**abs(i)
-	
-	
-	
 	return freq
 
 if __name__=="__main__":
