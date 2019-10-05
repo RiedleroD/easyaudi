@@ -124,34 +124,51 @@ def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM):
 	else:
 		raise ValueError("Meth has an invalid Value: "+str(meth))
 
-class WaveGen():
-	def __init__(self):
-		pass
-	def sin(self,dur:float,freq:float=1,vol:float=0.5,init_delay:float=0):
-		return Sine(dur,freq,vol,init_delay)
 class WaveForm():
-	typ="Empty Wave"
-	def __init__(self,dur:float,freq:float,vol:float,init_delay:float):
-		self.delay=init_delay*PA_BASERATE
+	typ="Empty"
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0):
+		self.delay=delay*PA_BASERATE
 		self.dur=dur*PA_BASERATE
 		self.dur2=dur*PA_BASERATE
 		self.freq=freq/PA_BASERATE
 		self.vol=vol*BIGGEST_SAMPLE
 	def construct(self):
-		if self.delay>0:
-			self.delay-=1
-		self.dur-=1
-		return self.magicfunc()
+		if self.dur>0:
+			if self.delay>0:
+				self.delay-=1
+			self.dur-=1
+			return self.magicfunc()
+		else:
+			return 0
 	def stop(self):
 		self.dur=0
 	def magicfunc(self):
 		return 0
 	def __str__(self):
-		return "<"+self.typ+" Object [delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
+		return "<"+self.typ+" Object [dur="+str(self.dur/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
 class Sine(WaveForm):
 	typ="Sine"
 	def magicfunc(self):
-		return math.sin((self.dur2-self.dur)*6.283*self.freq)*self.vol
+		return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*self.vol
+class Square(WaveForm):
+	typ="Square"
+	def magicfunc(self):
+		x=math.sin((self.dur2-self.dur)*math.pi*2*self.freq)
+		if x>0:
+			return self.vol
+		else:
+			return -self.vol
+class Saw(WaveForm):
+	typ="Saw"
+	def magicfunc(self):
+		return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*self.vol
+
+class WaveGen():
+	Sin=Sine
+	Square=Square
+	Saw=Saw
+	def __init__(self):
+		pass
 
 def note(n:str):
 	freq=440 #A4
@@ -231,3 +248,7 @@ def note(n:str):
 	
 	
 	return freq
+
+if __name__=="__main__":
+	import test_jingle as jingle
+	jingle.main()

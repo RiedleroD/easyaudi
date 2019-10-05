@@ -9,7 +9,7 @@ class RealTimePlayer():
 		self.screen=pygame.set_mode((720,720))
 	def doit(self,note,on):
 		if on and note not in self.wavlist:
-			self.wavlist[note]=audi.add(audi.wg.Sin(dur=-1,vol=0.2,freq=ezaud.note(note)))
+			self.wavlist[note]=audi.add(audi.wg.sin(dur=-1,vol=0.2,freq=ezaud.note(note)))
 		elif note in self.wavlist and not on:
 			self.wavlist[note].stop()
 			del self.wavlist[note]
