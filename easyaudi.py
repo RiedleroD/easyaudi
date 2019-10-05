@@ -41,6 +41,13 @@ class WaveForm():
 	typ="Empty"
 	__doc__="Base class for waveforms."
 	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0):
+		"""Initiates the waveform.
+
+Argument explanations:	
+	freq	->	Frequency of the wave in Hz
+	dur		->	Duration of the wave in seconds. Starts after delay.
+	delay	->	Delay between the waveform being added to the audio loop and it actually producing sound.
+	vol		->	Volume of the wave, where 0-1 is 0%-100% (it's possible to go over 100%, it just sounds horrible)"""
 		self.delay=delay*PA_BASERATE
 		self.dur=dur*PA_BASERATE
 		self.dur2=dur*PA_BASERATE
