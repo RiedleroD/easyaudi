@@ -40,7 +40,7 @@ class struct_pa_sample_spec(ctypes.Structure):
 class WaveForm():
 	typ="Empty"
 	__doc__="Base class for waveforms."
-	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01):
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01,fadeout:float=0.01):
 		"""Initiates the waveform.
 
 Argument explanations:
@@ -58,6 +58,7 @@ Argument explanations:
 		self.freq=freq/PA_BASERATE
 		self.vol=vol*BIGGEST_SAMPLE
 		self.att=att*PA_BASERATE
+		self.fade=fadeout*PA_BASERATE
 	def construct(self)->float:
 		"""returns the next sample"""
 		if self.dur>0:
