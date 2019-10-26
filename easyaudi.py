@@ -39,8 +39,8 @@ class struct_pa_sample_spec(ctypes.Structure):
 
 class WaveForm():
 	typ="Empty"
-	__doc__="Base class for waveforms."
-	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01,fadeout:float=0.01):
+	__doc__="Base class for waveforms"
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01):
 		"""Initiates the waveform.
 
 Argument explanations:
@@ -49,35 +49,49 @@ Argument explanations:
 		Except for the delay, every other argument has to be properly supported by the waveform.
 	freq	->	Frequency of the wave in Hz
 	dur		->	Duration of the wave in seconds. Starts after delay.
-	delay	->	Delay between the waveform being added to the audio loop and it actually producing sound.
+	delay	->	Delay between the waveform being added to the audio loop and it actually producing sound in seconds.
 	att		->	Attack (volume sweep from 0 to vol) in seconds.
-	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)"""
+	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)
+	fade	->	Fadeout of the wave in seconds. The wave will fade out for the selected amount of seconds after it ended."""
 		self.delay=delay*PA_BASERATE
 		self.dur=dur*PA_BASERATE
-		self.dur2=dur*PA_BASERATE
+		self.dur2=self.dur			#[CONSTANT]	initial duration
 		self.freq=freq/PA_BASERATE
 		self.vol=vol*BIGGEST_SAMPLE
 		self.att=att*PA_BASERATE
-		self.fade=fadeout*PA_BASERATE
+		self.fade=fade*PA_BASERATE
+		self.fade2=self.fade		#[CONSTANT]	initial fadeout duration
+	def alive(self)->bool:
+		"""Checks if the Wave hasn't ended yet"""
+		if self.delay>0 or self.dur>0 or self.fade>0:
+			return True
+		else:
+			return False
 	def construct(self)->float:
 		"""returns the next sample"""
-		if self.dur>0:
-			if self.delay>0:
-				self.delay-=1
+		assert self.dur>=0, "Duration ("+str(self.dur)+") can't be lower than 0"
+		if self.delay>0:
+			self.delay-=1
+			return 0
+		elif self.dur>0:
 			self.dur-=1
-			return self.magicfunc()
+		elif self.fade>0:
+			self.fade-=1
 		else:
 			return 0
+		return self.magicfunc()
 	def stop(self):
 		"""Ends the wave"""
 		self.dur=0
+		self.fade=0
+		self.delay=0
 	def magicfunc(self)->float:
 		"""Returns the current sample, even when the wave ended.
 Returns 0, since it's a null wave."""
 		return 0
 	def __str__(self)->str:
 		"""Returns a string representation of this object"""
-		return "<"+self.typ+" Object [dur="+str(self.dur/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
+		return "<"+self.typ+" Wave [dur="+str(self.dur2/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur2-self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
 
 class WaveGen():
 	class Sine(WaveForm):
@@ -92,6 +106,9 @@ class WaveGen():
 				vol=self.vol*att
 			else:
 				vol=self.vol
+			if self.dur==0:
+				fade=self.fade/self.fade2
+				vol*=fade
 			return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*vol
 	class Square(WaveForm):
 		typ="Square"
@@ -105,6 +122,9 @@ class WaveGen():
 				vol=self.vol*att
 			else:
 				vol=self.vol
+			if self.dur==0:
+				fade=self.fade/self.fade2
+				vol*=fade
 			x=math.sin((self.dur2-self.dur)*math.pi*2*self.freq)
 			if x>0:
 				return vol
@@ -122,6 +142,9 @@ class WaveGen():
 				vol=self.vol*att
 			else:
 				vol=self.vol
+			if self.dur==0:
+				fade=self.fade/self.fade2
+				vol*=fade
 			return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*vol
 	class Triangle(WaveForm):
 		typ="Sine"
@@ -135,6 +158,9 @@ class WaveGen():
 				vol=self.vol*att
 			else:
 				vol=self.vol
+			if self.dur==0:
+				fade=self.fade/self.fade2
+				vol*=fade
 			return math.asin(math.sin((self.dur2-self.dur)*math.pi*2*self.freq))*vol
 	__doc__="Collection class of waveforms"
 	def __init__(self):
@@ -180,7 +206,7 @@ class Audi():
 		finally:
 			self.pa.pa_simple_free(self.s)
 	def stop(self,wav:WaveForm=None):
-		"""Stops the audio loop"""
+		"""Stops the audio loop or a running wave."""
 		if wav==None:
 			self._stop=True
 		else:
@@ -191,10 +217,8 @@ class Audi():
 		for x in range(256):
 			sample=NEUTRAL_SAMPLE
 			for wf in self.wfs:
-				if wf.dur!=0 and wf.delay<=0:
+				if wf.alive():
 					sample+=wf.construct()
-				elif wf.delay>0:
-					wf.delay-=1
 				else:
 					del self.wfs[self.wfs.index(wf)]
 			s+=samp2bytes(int(sample))
