@@ -89,6 +89,13 @@ Argument explanations:
 		"""Returns the current sample, even when the wave ended.
 Returns 0, since it's a null wave."""
 		return 0
+	def __iter__(self):
+		return self
+	def	__next__(self)->float:
+		if self.alive():
+			return self.construct()
+		else:
+			raise StopIteration()
 	def __str__(self)->str:
 		"""Returns a string representation of this object"""
 		return "<"+self.typ+" Wave [dur="+str(self.dur2/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur2-self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
