@@ -116,7 +116,7 @@ class WaveGen():
 			if self.dur==0:
 				fade=self.fade/self.fade2
 				vol*=fade
-			return math.sin((self.dur2-self.dur)*math.pi*2*self.freq)*vol
+			return math.sin((self.fade2-self.fade+self.dur2-self.dur)*math.pi*2*self.freq)*vol
 	class Square(WaveForm):
 		typ="Square"
 		__doc__="A square wave"
@@ -132,7 +132,7 @@ class WaveGen():
 			if self.dur==0:
 				fade=self.fade/self.fade2
 				vol*=fade
-			x=math.sin((self.dur2-self.dur)*math.pi*2*self.freq)
+			x=math.sin((self.fade2-self.fade+self.dur2-self.dur)*math.pi*2*self.freq)
 			if x>0:
 				return vol
 			else:
@@ -152,7 +152,7 @@ class WaveGen():
 			if self.dur==0:
 				fade=self.fade/self.fade2
 				vol*=fade
-			return (((self.dur2-self.dur)*2*self.freq+1)%2-1)*vol
+			return (((self.fade2-self.fade+self.dur2-self.dur)*2*self.freq+1)%2-1)*vol
 	class Triangle(WaveForm):
 		typ="Sine"
 		__doc__="A sine wave"
@@ -168,7 +168,7 @@ class WaveGen():
 			if self.dur==0:
 				fade=self.fade/self.fade2
 				vol*=fade
-			return math.asin(math.sin((self.dur2-self.dur)*math.pi*2*self.freq))*vol
+			return math.asin(math.sin((self.fade2-self.fade+self.dur2-self.dur)*math.pi*2*self.freq))*vol
 	__doc__="Collection class of waveforms"
 	def __init__(self):
 		pass
