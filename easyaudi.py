@@ -40,7 +40,7 @@ class struct_pa_sample_spec(ctypes.Structure):
 class WaveForm():
 	typ="Empty"
 	__doc__="Base class for waveforms"
-	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01):
+	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01,**kwargs):
 		"""Initiates the waveform.
 
 Argument explanations:
@@ -66,6 +66,7 @@ Argument explanations:
 		self._att=att*PA_BASERATE		#The remaining attack
 		self.att=self.progress/self._att#The attack in percent
 		self.fade=self._fade/self._fade2#The fade in percent
+		self.__dict__.update(kwargs)
 	def alive(self)->bool:
 		"""Checks if the Wave hasn't ended yet"""
 		if self.delay>0 or self._dur>0 or self._fade>0:
@@ -128,10 +129,11 @@ class WaveGen():
 	class Square(WaveForm):
 		typ="Square"
 		__doc__="A square wave"
+		duty=50
 		def magicfunc(self)->float:
 			"""Returns the current sample, even when the wave ended"""
 			x=math.sin(self.progress*math.pi*2*self.freq)
-			if x>0:
+			if x>(self.duty-50)/100:
 				return self.vol
 			else:
 				return -self.vol
