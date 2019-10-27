@@ -137,6 +137,19 @@ class WaveGen():
 				return self.vol
 			else:
 				return -self.vol
+	class SuperSynth(Square):
+		typ="Square"
+		__doc__="A square wave"
+		duty=50
+		def magicfunc(self)->float:
+			"""Returns the current sample, even when the wave ended"""
+			x=math.sin(self.progress*math.pi*2*self.freq)
+			self.duty+=0.01
+			self.duty%=100
+			if x>(self.duty-50)/100:
+				return self.vol
+			else:
+				return -self.vol
 	class Saw(WaveForm):
 		typ="Saw"
 		__doc__="A saw wave"
