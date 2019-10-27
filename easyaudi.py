@@ -53,42 +53,60 @@ Argument explanations:
 	att		->	Attack (volume sweep from 0 to vol) in seconds.
 	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)
 	fade	->	Fadeout of the wave in seconds. The wave will fade out for the selected amount of seconds after it ended."""
-		self.delay=delay*PA_BASERATE
-		self.dur=dur*PA_BASERATE
-		self.dur2=self.dur			#[CONSTANT]	initial duration
-		self.freq=freq/PA_BASERATE
-		self.vol=vol*BIGGEST_SAMPLE
-		self.att=att*PA_BASERATE
-		self.fade=fade*PA_BASERATE
-		self.fade2=self.fade		#[CONSTANT]	initial fadeout duration
+		self.delay=delay*PA_BASERATE	#The remaining delay
+		self._dur=dur*PA_BASERATE		#The remaining duration
+		self._dur2=self._dur			#[CONSTANT]	initial duration
+		self.dur=self._dur2-self._dur	#The already played duration
+		self.freq=freq/PA_BASERATE		#The frequency in Hz
+		self._vol=vol*BIGGEST_SAMPLE	#The base volume
+		self.vol=self._vol				#The true volume (affected by attack, fadeout and, after they got implemented, effects)
+		self._fade=fade*PA_BASERATE		#The remaining fade
+		self._fade2=self._fade			#[CONSTANT]	initial fadeout duration
+		self.progress=self.get_progress()
+		self._att=att*PA_BASERATE		#The remaining attack
+		self.att=self.progress/self._att#The attack in percent
+		self.fade=self._fade/self._fade2#The fade in percent
 	def alive(self)->bool:
 		"""Checks if the Wave hasn't ended yet"""
-		if self.delay>0 or self.dur>0 or self.fade>0:
+		if self.delay>0 or self._dur>0 or self._fade>0:
 			return True
 		else:
 			return False
 	def construct(self)->float:
 		"""returns the next sample"""
-		assert self.dur>=0, "Duration ("+str(self.dur)+") can't be lower than 0"
+		assert self._dur>=0, "Duration ("+str(self._dur)+") can't be lower than 0"
+		self.progress=self.get_progress()
 		if self.delay>0:
 			self.delay-=1
 			return 0
-		elif self.dur>0:
-			self.dur-=1
-		elif self.fade>0:
-			self.fade-=1
+		elif self._dur>0:
+			self._dur-=1
+		elif self._fade>0:
+			self._fade-=1
 		else:
 			return 0
+		if self._att!=0:
+			self.att=(self.progress/self._att)
+			if self.att>1:
+				self.att=1
+			self.vol=self._vol*self.att
+		else:
+			self.vol=self._vol
+		if self._dur==0:
+			self.fade=self._fade/self._fade2
+			self.vol*=self.fade
 		return self.magicfunc()
 	def stop(self):
 		"""Ends the wave"""
-		self.dur=0
-		self.fade=0
+		self._dur=0
+		self._fade=0
 		self.delay=0
 	def magicfunc(self)->float:
 		"""Returns the current sample, even when the wave ended.
 Returns 0, since it's a null wave."""
 		return 0
+	def get_progress(self):
+		return (self._fade2-self._fade+self._dur2-self._dur)
 	def __iter__(self):
 		return self
 	def	__next__(self)->float:
@@ -98,7 +116,7 @@ Returns 0, since it's a null wave."""
 			raise StopIteration()
 	def __str__(self)->str:
 		"""Returns a string representation of this object"""
-		return "<"+self.typ+" Wave [dur="+str(self.dur2/PA_BASERATE)+",delay="+str(self.delay/PA_BASERATE)+",time2live="+str((self.dur2-self.dur)/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self.vol/BIGGEST_SAMPLE)+"]>"
+		return "<"+self.typ+" Wave [dur="+str(self._dur2/PA_BASERATE)+",delay="+str(self._delay/PA_BASERATE)+",time2live="+str(self.progress/PA_BASERATE)+",freq="+str(self.freq*PA_BASERATE)+",vol="+str(self._vol/BIGGEST_SAMPLE)+"]>"
 
 class WaveGen():
 	class Sine(WaveForm):
@@ -106,69 +124,29 @@ class WaveGen():
 		__doc__="A sine wave"
 		def magicfunc(self)->float:
 			"""Returns the current sample, even when the wave ended"""
-			if self.att!=0:
-				att=((self.dur2-self.dur)/self.att)
-				if att>1:
-					att=1
-				vol=self.vol*att
-			else:
-				vol=self.vol
-			if self.dur==0:
-				fade=self.fade/self.fade2
-				vol*=fade
-			return math.sin((self.fade2-self.fade+self.dur2-self.dur)*math.pi*2*self.freq)*vol
+			return math.sin(self.progress*math.pi*2*self.freq)*self.vol
 	class Square(WaveForm):
 		typ="Square"
 		__doc__="A square wave"
 		def magicfunc(self)->float:
 			"""Returns the current sample, even when the wave ended"""
-			if self.att!=0:
-				att=((self.dur2-self.dur)/self.att)
-				if att>1:
-					att=1
-				vol=self.vol*att
-			else:
-				vol=self.vol
-			if self.dur==0:
-				fade=self.fade/self.fade2
-				vol*=fade
-			x=math.sin((self.fade2-self.fade+self.dur2-self.dur)*math.pi*2*self.freq)
+			x=math.sin(self.progress*math.pi*2*self.freq)
 			if x>0:
-				return vol
+				return self.vol
 			else:
-				return -vol
+				return -self.vol
 	class Saw(WaveForm):
 		typ="Saw"
 		__doc__="A saw wave"
 		def magicfunc(self)->float:
 			"""Returns the current sample, even when the wave ended"""
-			if self.att!=0:
-				att=((self.dur2-self.dur)/self.att)
-				if att>1:
-					att=1
-				vol=self.vol*att
-			else:
-				vol=self.vol
-			if self.dur==0:
-				fade=self.fade/self.fade2
-				vol*=fade
-			return (((self.fade2-self.fade+self.dur2-self.dur)*2*self.freq+1)%2-1)*vol
+			return ((self.progress*2*self.freq+1)%2-1)*self.vol
 	class Triangle(WaveForm):
 		typ="Sine"
 		__doc__="A sine wave"
 		def magicfunc(self)->float:
 			"""Returns the current sample, even when the wave ended"""
-			if self.att!=0:
-				att=((self.dur2-self.dur)/self.att)
-				if att>1:
-					att=1
-				vol=self.vol*att
-			else:
-				vol=self.vol
-			if self.dur==0:
-				fade=self.fade/self.fade2
-				vol*=fade
-			return math.asin(math.sin((self.fade2-self.fade+self.dur2-self.dur)*math.pi*2*self.freq))*vol
+			return math.asin(math.sin(self.progress*math.pi*2*self.freq))*self.vol
 	__doc__="Collection class of waveforms"
 	def __init__(self):
 		pass
