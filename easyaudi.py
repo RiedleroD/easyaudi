@@ -73,9 +73,11 @@ Argument explanations:
 			return True
 		else:
 			return False
+	def time_left(self)->float:
+		"""returns time in seconds that the Wave takes to complete"""
+		return self.delay/PA_BASERATE+self._dur/PA_BASERATE+self.fade/PA_BASERATE
 	def construct(self)->float:
 		"""returns the next sample"""
-		assert self._dur>=0, "Duration ("+str(self._dur)+") can't be lower than 0"
 		self.progress=self.get_progress()
 		if self.delay>0:
 			self.delay-=1
@@ -225,14 +227,19 @@ class Audi():
 		if not self.isreal:
 			await asyncio.sleep(0)
 		return s
-	def add(self,waveform:WaveForm)->WaveForm:
-		"""Adds a waveform to the audio loop"""
-		self.wfs.append(waveform)
-		return waveform
-	def add_mult(self,*waveforms:(WaveForm))->None:
+	def add(self,*waveforms:(WaveForm))->tuple:
 		"""Adds several waveforms to the audio loop"""
 		for wf in waveforms:
 			self.wfs.append(wf)
+	async def play(self,*waveforms:(WaveForm))->None:
+		"""Adds several WaveForms and waits for them to finish"""
+		longest=0
+		for wf in waveforms:
+			self.wfs.append(wf)
+			x=wf.time_left()
+			if x>longest:
+				longest=x
+		await asyncio.sleep(longest)
 
 def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM)->bytes:
 	"""Converts a sample to bytes"""
