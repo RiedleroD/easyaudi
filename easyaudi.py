@@ -40,7 +40,7 @@ class struct_pa_sample_spec(ctypes.Structure):
 class WaveForm():
 	typ="Empty"
 	__doc__="Base class for waveforms"
-	def __init__(self,dur:float,freq:float,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01,**kwargs):
+	def __init__(self,dur:float,freq:float=None,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01,note:str=None,**kwargs):
 		"""Initiates the waveform.
 
 Argument explanations:
@@ -53,6 +53,12 @@ Argument explanations:
 	att		->	Attack (volume sweep from 0 to vol) in seconds.
 	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)
 	fade	->	Fadeout of the wave in seconds. The wave will fade out for the selected amount of seconds after it ended."""
+		if freq==None:
+			if note==None:
+				raise ValueError("You can't have a Wave without frequncy. Please set either the note or freq attribute.")
+			else:
+				freq=Note(note)
+		self.freq=freq
 		self.delay=delay*PA_BASERATE	#The remaining delay
 		self._dur=dur*PA_BASERATE		#The remaining duration
 		self._dur2=self._dur			#[CONSTANT]	initial duration
@@ -197,7 +203,9 @@ class Audi():
 				#latency = self.pa.pa_simple_get_latency(self.s, self.error)
 				#if latency == -1:
 				#	raise Exception('Getting latency failed!')
-				buf=await self.getchunk()
+				buf=self.getchunk()
+				if not self.isreal:
+					await asyncio.sleep(0)
 				if buf == '':
 					return
 				if self.pa.pa_simple_write(self.s, buf, len(buf), self.error):
@@ -213,7 +221,7 @@ class Audi():
 			self._stop=True
 		else:
 			del self.wfs[self.wfs.index(wav)]
-	async def getchunk(self)->bytes:
+	def getchunk(self)->bytes:
 		"""Returns a chunk of 256 samples"""
 		s=b""
 		for x in range(256):
@@ -224,8 +232,6 @@ class Audi():
 				else:
 					del self.wfs[self.wfs.index(wf)]
 			s+=samp2bytes(int(sample))
-		if not self.isreal:
-			await asyncio.sleep(0)
 		return s
 	def add(self,*waveforms:(WaveForm))->tuple:
 		"""Adds several waveforms to the audio loop"""
@@ -268,7 +274,7 @@ def samp2bytes(samp:int,meth:int=PA_SAMPLE_FORM)->bytes:
 	else:
 		raise ValueError("Meth has an invalid Value: "+str(meth))
 
-def note(n:str)->float:
+def Note(n:str)->float:
 	"""Converts a note into a frequency.
 Note Syntax:
 <NOTE><OCTAVE><MODIFIER>
