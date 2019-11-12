@@ -1,5 +1,5 @@
-#!/usr/bin/python3.7
-import ctypes,sys,random, math,asyncio, time, struct
+#!/usr/bin/python3
+import ctypes,sys,random, math, asyncio, time, struct
 
 PA_STREAM_PLAYBACK = 1
 
@@ -36,6 +36,39 @@ class struct_pa_sample_spec(ctypes.Structure):
 	('format', ctypes.c_int),
 	('rate', ctypes.c_uint32),
 	('channels', ctypes.c_uint8)]
+
+class Effect():
+	typ="Empty"
+	__doc__="Base class for Effects"
+	def beforemagic(self,wavedict:dict)->dict:
+		"""Takes the object dict from the WaveForm it's affecting and returns a dict with values to update"""
+		return {}
+	def aftermagic(self,sample:float)->float:
+		"""Takes a sample and returns it"""
+		return sample
+
+class EffectGen():
+	class SlowPass(Effect):
+		typ="SlowPass"
+		__doc__="Emulates a speaker that is slow at moving its membrane."
+		def __init__(self,speed:float):
+			"""Arguments:
+	speed	->	The speed at which the emulated speaker can move (from 0-1 where 0 is no movement and 1 is normal speed)
+Attributes:
+	speed	->	The speed at which the emulated speaker can move (from 0-"""+str(PA_BASERATE)+""" where 0 is no movement and """+str(PA_BASERATE)+""" is normal speed)
+	prevsamp->	The previously filtered sample"""
+			self.speed=speed*PA_BASERATE
+			self.prevsamp=0
+		def aftermagic(self,sample:float)->float:
+			"""Takes the sample and outputs the filtered one."""
+			if sample>self.sample+self.speed:
+				result=self.sample+self.speed
+			elif sample<self.sample-self.speed:
+				result=self.sample-self.speed
+			else:
+				result=sample
+			self.sample=result
+			return result
 
 class WaveForm():
 	typ="Empty"
@@ -176,7 +209,7 @@ class WaveGen():
 
 class Audi():
 	__doc__="Main audio managing class."
-	def __init__(self,name:str,rate:int=PA_BASERATE,form:int=PA_SAMPLE_FORM,realtime:bool=False):
+	def __init__(self,name:str,rate:int=PA_BASERATE,form:int=PA_SAMPLE_FORM,realtime:bool=False,effects:[Effect]=[]):
 		print("""
 		RIEDLER'S
 		
@@ -190,7 +223,15 @@ class Audi():
 		self.error = ctypes.c_int(0)
 		self._stop=False
 		self.wg=WaveGen()
+		self.eg=EffectGen()
 		self.wfs=[]
+		self.effects={}
+		self.effectn
+		counter=0
+		for effect in effects:
+			self.effects[counter]=effect
+			counter+=1
+		del counter
 		self.isreal=realtime
 		pa_sample_spec = struct_pa_sample_spec
 		self.s = self.pa.pa_simple_new(None,"EasyAudi - "+name,PA_STREAM_PLAYBACK,None,'playback',ctypes.byref(self.ss),None,None,ctypes.byref(self.error))
@@ -204,6 +245,8 @@ class Audi():
 				#if latency == -1:
 				#	raise Exception('Getting latency failed!')
 				buf=self.getchunk()
+				for effect in self.effects:
+					buf=effect.aftermagic(buf)
 				if not self.isreal:
 					await asyncio.sleep(0)
 				if buf == '':
@@ -215,6 +258,20 @@ class Audi():
 				#print(latency)
 		finally:
 			self.pa.pa_simple_free(self.s)
+	def add_effect(self,effect:Effect,place:int=-1)->int:
+		"""Adds an effect to the effect chain.
+Arguments:
+	place	->	the id to place the effect. -1 means it gets automatically generated with the id() function"""
+		if place<0:
+			i=id(effect)
+			self.effects[i]=effect
+			return i
+		else:
+			self.effects[place]=effect
+	def del_effect(self,id:int)->None:
+		del self.effects[id]
+	def get_effect(self,id:int)->Effect:
+		return self.effects[id]
 	def stop(self,wav:WaveForm=None):
 		"""Stops the audio loop or a running wave."""
 		if wav==None:

@@ -1,4 +1,4 @@
-#!/usr/bin/python3.7
+#!/usr/bin/python3
 import easyaudi as ezaud
 import asyncio
 async def amain(audi:ezaud.Audi):
