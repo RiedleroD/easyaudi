@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import ctypes,sys,random, math, asyncio, time, struct
+pa=ctypes.cdll.LoadLibrary('libpulse-simple.so.0')
 
 PA_STREAM_PLAYBACK = 1
 
@@ -215,7 +216,6 @@ class Audi():
 		
 		EasyAudi
 		""")
-		self.pa = ctypes.cdll.LoadLibrary('libpulse-simple.so.0')
 		self.ss = struct_pa_sample_spec()
 		self.ss.rate = rate
 		self.ss.channels = 1
@@ -226,22 +226,19 @@ class Audi():
 		self.eg=EffectGen()
 		self.wfs=[]
 		self.effects={}
-		self.effectn
-		counter=0
+		self.effectn=0
 		for effect in effects:
-			self.effects[counter]=effect
-			counter+=1
-		del counter
+			self.effects[self.effectn]=effect
+			self.effectn+=1
 		self.isreal=realtime
 		pa_sample_spec = struct_pa_sample_spec
-		self.s = self.pa.pa_simple_new(None,"EasyAudi - "+name,PA_STREAM_PLAYBACK,None,'playback',ctypes.byref(self.ss),None,None,ctypes.byref(self.error))
+		self.s = pa.pa_simple_new(None,"EasyAudi - "+name,PA_STREAM_PLAYBACK,None,'playback',ctypes.byref(self.ss),None,None,ctypes.byref(self.error))
 	async def audioloop(self):
 		"""starts the audio loop"""
 		try:
 			startt=time.time()
 			while True:
-				#print("0.00\r",round(time.time()-startt,2),"\033[6G",self.wfs,sep='')
-				#latency = self.pa.pa_simple_get_latency(self.s, self.error)
+				#latency = pa.pa_simple_get_latency(self.s, self.error)
 				#if latency == -1:
 				#	raise Exception('Getting latency failed!')
 				buf=self.getchunk()
@@ -251,13 +248,13 @@ class Audi():
 					await asyncio.sleep(0)
 				if buf == '':
 					return
-				if self.pa.pa_simple_write(self.s, buf, len(buf), self.error):
+				if pa.pa_simple_write(self.s, buf, len(buf), self.error):
 					raise Exception('Could not play!')
 				if self._stop:
 					break
 				#print(latency)
 		finally:
-			self.pa.pa_simple_free(self.s)
+			pa.pa_simple_free(self.s)
 	def add_effect(self,effect:Effect,place:int=-1)->int:
 		"""Adds an effect to the effect chain.
 Arguments:
@@ -272,7 +269,11 @@ Arguments:
 		del self.effects[id]
 	def get_effect(self,id:int)->Effect:
 		return self.effects[id]
-	def stop(self,wav:WaveForm=None):
+	def get_id_from_effect(self,effect:Effect)->int:
+		for id,eff in self.effects.items():
+			if hash(eff)==hash(effect):
+				return id
+	def stop(self,wav:WaveForm=None)->None:
 		"""Stops the audio loop or a running wave."""
 		if wav==None:
 			self._stop=True
