@@ -58,18 +58,43 @@ class EffectGen():
 Attributes:
 	speed	->	The speed at which the emulated speaker can move (from 0-"""+str(PA_BASERATE)+""" where 0 is no movement and """+str(PA_BASERATE)+""" is normal speed)
 	prevsamp->	The previously filtered sample"""
-			self.speed=speed*PA_BASERATE
+			self.speed=speed*BIGGEST_SAMPLE
 			self.prevsamp=0
 		def aftermagic(self,sample:float)->float:
 			"""Takes the sample and outputs the filtered one."""
-			if sample>self.sample+self.speed:
-				result=self.sample+self.speed
-			elif sample<self.sample-self.speed:
-				result=self.sample-self.speed
+			if sample>self.prevsamp+self.speed:
+				result=self.prevsamp+self.speed
+			elif sample<self.prevsamp-self.speed:
+				result=self.prevsamp-self.speed
 			else:
 				result=sample
 			self.sample=result
 			return result
+	class LowPass(Effect):
+		typ="LowPass"
+		__doc__="LowPass Filter. You may have heard of it."
+		def __init__(self,amount:int):
+			self.amount=amount
+			self.samples=[0 for x in range(amount)]
+		def aftermagic(self,sample:float)->float:
+			self.samples.append(sample)
+			for samp in self.samples[:-1]:
+				sample+=samp
+			self.samples.pop(0)
+			return sample/(self.amount+1)
+	class HighPass(Effect):
+		typ="HighPass"
+		__doc__="HighPass Filter. You may have heard of it."
+		def __init__(self,amount:int):
+			self.amount=amount
+			self.samples=[0 for x in range(amount)]
+		def aftermagic(self,sample:float)->float:
+			self.samples.append(sample)
+			result=0
+			for samp in self.samples[:-1]:
+				result+=samp
+			self.samples.pop(0)
+			return sample-(result/(self.amount+1))
 
 class WaveForm():
 	typ="Empty"
@@ -242,8 +267,6 @@ class Audi():
 				#if latency == -1:
 				#	raise Exception('Getting latency failed!')
 				buf=self.getchunk()
-				for effect in self.effects:
-					buf=effect.aftermagic(buf)
 				if not self.isreal:
 					await asyncio.sleep(0)
 				if buf == '':
@@ -265,6 +288,7 @@ Arguments:
 			return i
 		else:
 			self.effects[place]=effect
+			return place
 	def del_effect(self,id:int)->None:
 		del self.effects[id]
 	def get_effect(self,id:int)->Effect:
@@ -289,6 +313,8 @@ Arguments:
 					sample+=wf.construct()
 				else:
 					del self.wfs[self.wfs.index(wf)]
+			for effect in self.effects.values():
+				sample=effect.aftermagic(sample)
 			s+=samp2bytes(int(sample))
 		return s
 	def add(self,*waveforms:(WaveForm))->tuple:

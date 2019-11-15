@@ -25,6 +25,20 @@ async def feeder(audi:ezaud.Audi):
 		audi.wg.Square(dur=0.3,vol=0.3,note="C4"),
 		audi.wg.Square(dur=0.3,delay=0.1,vol=0.3,note="D4"),
 		audi.wg.Square(dur=0.3,delay=0.2,vol=0.3,note="A4"))
+	print("Some melody with Squares now with LowPass Filter")
+	lp=audi.add_effect(audi.eg.LowPass(10))
+	await audi.play(
+		audi.wg.Square(dur=0.3,vol=0.3,note="C4"),
+		audi.wg.Square(dur=0.3,delay=0.1,vol=0.3,note="D4"),
+		audi.wg.Square(dur=0.3,delay=0.2,vol=0.3,note="A4"))
+	audi.del_effect(lp)
+	print("Some melody with Squares now with HighPass Filter")
+	hp=audi.add_effect(audi.eg.HighPass(10))
+	await audi.play(
+		audi.wg.Square(dur=0.3,vol=0.3,note="C4"),
+		audi.wg.Square(dur=0.3,delay=0.1,vol=0.3,note="D4"),
+		audi.wg.Square(dur=0.3,delay=0.2,vol=0.3,note="A4"))
+	audi.del_effect(hp)
 	print("Some melody with Squares which differ in duty at the same time")
 	await audi.play(
 		audi.wg.Square(dur=0.3,vol=0.3,note="C4",duty=25),
