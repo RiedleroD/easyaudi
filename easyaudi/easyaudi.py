@@ -99,7 +99,7 @@ Attributes:
 class WaveForm():
 	typ="Empty"
 	__doc__="Base class for waveforms"
-	def __init__(self,dur:float,freq:float=None,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01,note:str=None,**kwargs):
+	def __init__(self,dur:float,freq:float=None,vol:float=0.25,delay:float=0,att:float=0.01,fade:float=0.01,note:str=None,effects:[Effect]=[],**kwargs):
 		"""Initiates the waveform.
 
 Argument explanations:
@@ -111,7 +111,9 @@ Argument explanations:
 	delay	->	Delay between the waveform being added to the audio loop and it actually producing sound in seconds.
 	att		->	Attack (volume sweep from 0 to vol) in seconds.
 	vol		->	Volume of the wave, where 0-1 is 0%-100%. (it's possible to go over 100%, it just sounds horrible)
-	fade	->	Fadeout of the wave in seconds. The wave will fade out for the selected amount of seconds after it ended."""
+	fade	->	Fadeout of the wave in seconds. The wave will fade out for the selected amount of seconds after it ended.
+	note	->	Frequency of the Wave as a note
+	effects	->	list of Effects to use on wf"""
 		if freq==None:
 			if note==None:
 				raise ValueError("You can't have a Wave without frequncy. Please set either the note or freq attribute.")
@@ -131,6 +133,7 @@ Argument explanations:
 		self._att=att*PA_BASERATE		#The remaining attack
 		self.att=self.progress/self._att#The attack in percent
 		self.fade=self._fade/self._fade2#The fade in percent
+		self.effects=effects
 		self.__dict__.update(kwargs)
 	def alive(self)->bool:
 		"""Checks if the Wave hasn't ended yet"""
@@ -163,7 +166,12 @@ Argument explanations:
 		if self._dur==0:
 			self.fade=self._fade/self._fade2
 			self.vol*=self.fade
-		return self.magicfunc()
+		for effect in self.effects:
+			self.__dict__.update(effect.beforemagic(self.__dict__))
+		result=self.magicfunc()
+		for effect in self.effects:
+			result=effect.aftermagic(result)
+		return result
 	def stop(self):
 		"""Ends the wave"""
 		self._dur=0
